@@ -111,6 +111,8 @@ static void mednafen_init()
     MDFNI_SetSetting("pce.slend", "239"); // PCE: Last rendered scanline
 
     MDFNI_SetSetting("psx.h_overscan", "0"); // Remove PSX overscan
+    MDFNI_SetSetting("psx.slstartp", "14"); // PSX: First rendered scanline PAL
+    MDFNI_SetSetting("psx.slendp", "275"); // PSX: Last rendered scanline PAL
 
     // PlayStation Multitap supported games (incomplete list)
     NSDictionary *multiTapGames =
