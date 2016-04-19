@@ -230,7 +230,7 @@ void PS_GPU::SoftReset(void) // Control command 0x00
 
 void PS_GPU::Power(void)
 {
- memset(GPURAM, 0, VRAM_NPIXELS * sizeof(uint16));
+ memset(GPU_RAM, 0, VRAM_NPIXELS * sizeof(uint16));
 
  memset(CLUT_Cache, 0, sizeof(CLUT_Cache));
  CLUT_Cache_VB = ~0U;
@@ -1434,7 +1434,7 @@ pscpu_timestamp_t PS_GPU::Update(const pscpu_timestamp_t sys_timestamp)
 
       for (uint32 i = 0; i < UPSCALE; i++)
       {
-       const uint16 *src = GPURAM[y + i];
+       const uint16 *src = GPU_RAM[y + i];
        dest = surface->pixels + (drxbo - dmpa) + ((dest_line << UPSCALE_SHIFT) + i) * surface->pitch32;
 
        for(int32 x = 0; x < udx_start; x++)
@@ -1547,7 +1547,7 @@ void PS_GPU::StateAction(StateMem *sm, const unsigned load, const bool data_only
 
  SFORMAT StateRegs[] =
  {
-  SFARRAY16(&GPURAM[0][0], sizeof(GPURAM) / sizeof(GPURAM[0][0])),
+  SFARRAY16(&GPU_RAM[0][0], sizeof(GPU_RAM) / sizeof(GPU_RAM[0][0])),
 
   SFARRAY16(&CLUT_Cache[0], sizeof(CLUT_Cache) / sizeof(CLUT_Cache[0])),
   SFVAR(CLUT_Cache_VB),
