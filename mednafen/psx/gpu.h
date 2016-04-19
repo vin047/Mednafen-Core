@@ -109,7 +109,7 @@ class PS_GPU
  // Return a pixel from VRAM, ignoring the internal upscaling
  INLINE uint16 texel_fetch(uint32 x, uint32 y)
  {
-  return GPURAM[y << UPSCALE_SHIFT][x << UPSCALE_SHIFT];
+  return GPU_RAM[y << UPSCALE_SHIFT][x << UPSCALE_SHIFT];
  }
 
  // Set a pixel in VRAM, upscaling it if necessary
@@ -124,7 +124,7 @@ class PS_GPU
   {
    for (uint32 dx = 0; dx < UPSCALE; dx++)
    {
-    GPURAM[y + dy][x + dx] = v;
+    GPU_RAM[y + dy][x + dx] = v;
    }
   }
  }
@@ -132,13 +132,13 @@ class PS_GPU
  // Return a pixel from VRAM
  INLINE uint16 vram_fetch(uint32 x, uint32 y)
  {
-  return GPURAM[y][x];
+  return GPU_RAM[y][x];
  }
 
  // Set a pixel in VRAM
  INLINE void vram_put(uint32 x, uint32 y, uint16 v)
  {
-  GPURAM[y][x] = v;
+  GPU_RAM[y][x] = v;
  }
 
  private:
@@ -349,7 +349,7 @@ class PS_GPU
  pscpu_timestamp_t lastts;
 
  // Y, X
- uint16 GPURAM[VRAM_HEIGHT][VRAM_WIDTH];
+ uint16 GPU_RAM[VRAM_HEIGHT][VRAM_WIDTH];
 
  //
  //
