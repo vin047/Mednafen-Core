@@ -101,7 +101,9 @@ void Deinterlacer::InternalProcess(MDFN_Surface *surface, MDFN_Rect &DisplayRect
 
    *dest_lw = LWBuffer[y];
 
+#if 0
    memcpy(dest, src, LWBuffer[y] * sizeof(T));
+#endif
   }
   else if(DeintType == DEINT_BOB)
   {

@@ -18,11 +18,12 @@
 template<int BlendMode, bool MaskEval_TA, bool textured>
 INLINE void PS_GPU::PlotPixel(uint32 x, uint32 y, uint16 fore_pix)
 {
- y &= 511;	// More Y precision bits than GPU RAM installed in (non-arcade, at least) Playstation hardware.
+ // More Y precision bits than GPU RAM installed in (non-arcade, at least) Playstation hardware.
+ y &= (512 << UPSCALE_SHIFT) - 1;
 
  if(BlendMode >= 0 && (fore_pix & 0x8000))
  {
-  uint16 bg_pix = GPURAM[y][x];	// Don't use bg_pix for mask evaluation, it's modified in blending code paths.
+  uint16 bg_pix = vram_fetch(x, y);	// Don't use bg_pix for mask evaluation, it's modified in blending code paths.
   uint16 pix; // = fore_pix & 0x8000;
 
 /*
@@ -78,13 +79,87 @@ INLINE void PS_GPU::PlotPixel(uint32 x, uint32 y, uint16 fore_pix)
        break;
   }
 
-  if(!MaskEval_TA || !(GPURAM[y][x] & 0x8000))
-   GPURAM[y][x] = (textured ? pix : (pix & 0x7FFF)) | MaskSetOR;
+  if(!MaskEval_TA || !(vram_fetch(x, y) & 0x8000))
+   vram_put(x, y, (textured ? pix : (pix & 0x7FFF)) | MaskSetOR);
  }
  else
  {
-  if(!MaskEval_TA || !(GPURAM[y][x] & 0x8000))
-   GPURAM[y][x] = (textured ? fore_pix : (fore_pix & 0x7FFF)) | MaskSetOR;
+  if(!MaskEval_TA || !(vram_fetch(x, y) & 0x8000))
+   vram_put(x, y, (textured ? fore_pix : (fore_pix & 0x7FFF)) | MaskSetOR);
+ }
+}
+
+/// Copy of PlotPixel without internal upscaling, used to draw lines and sprites
+template<int BlendMode, bool MaskEval_TA, bool textured>
+INLINE void PS_GPU::PlotNativePixel(uint32 x, uint32 y, uint16 fore_pix)
+{
+ y &= 511;  // More Y precision bits than GPU RAM installed in (non-arcade, at least) Playstation hardware.
+
+ if(BlendMode >= 0 && (fore_pix & 0x8000))
+ {
+  uint16 bg_pix = texel_fetch(x, y);   // Don't use bg_pix for mask evaluation, it's modified in blending code paths.
+  uint16 pix; // = fore_pix & 0x8000;
+
+  /*
+   static const int32 tab[4][2] =
+   {
+   { 2,  2 },
+   { 4,  4 },
+   { 4, -4 },
+   { 4,  1 }
+   };
+  */
+  // Efficient 15bpp pixel math algorithms from blargg
+  switch(BlendMode)
+  {
+   case 0:
+    bg_pix |= 0x8000;
+    pix = ((fore_pix + bg_pix) - ((fore_pix ^ bg_pix) & 0x0421)) >> 1;
+    break;
+
+   case 1:
+    {
+     bg_pix &= ~0x8000;
+
+     uint32 sum = fore_pix + bg_pix;
+     uint32 carry = (sum - ((fore_pix ^ bg_pix) & 0x8421)) & 0x8420;
+
+     pix = (sum - carry) | (carry - (carry >> 5));
+    }
+    break;
+
+   case 2:
+    {
+     bg_pix |= 0x8000;
+     fore_pix &= ~0x8000;
+
+     uint32 diff = bg_pix - fore_pix + 0x108420;
+     uint32 borrow = (diff - ((bg_pix ^ fore_pix) & 0x108420)) & 0x108420;
+
+     pix = (diff - borrow) & (borrow - (borrow >> 5));
+    }
+    break;
+
+   case 3:
+    {
+     bg_pix &= ~0x8000;
+     fore_pix = ((fore_pix >> 2) & 0x1CE7) | 0x8000;
+
+     uint32 sum = fore_pix + bg_pix;
+     uint32 carry = (sum - ((fore_pix ^ bg_pix) & 0x8421)) & 0x8420;
+
+     pix = (sum - carry) | (carry - (carry >> 5));
+    }
+    break;
+  }
+
+  if(!MaskEval_TA || !(texel_fetch(x, y) & 0x8000))
+   texel_put(x, y, (textured ? pix : (pix & 0x7FFF)) | MaskSetOR);
+ }
+ else
+ {
+  if(!MaskEval_TA || !(texel_fetch(x, y) & 0x8000))
+   texel_put(x, y, (textured ? fore_pix : (fore_pix & 0x7FFF)) | MaskSetOR);
  }
 }
 
@@ -108,7 +183,7 @@ INLINE void PS_GPU::Update_CLUT_Cache(uint16 raw_clut)
 
   if(CLUT_Cache_VB != new_ccvb)
   {
-   uint16* const gpulp = GPURAM[(raw_clut >> 6) & 0x1FF];
+   uint32 y = (raw_clut >> 6) & 0x1FF;
    const uint32 cxo = (raw_clut & 0x3F) << 4;
    const uint32 count = (TexMode_TA ? 256 : 16);
 
@@ -116,7 +191,7 @@ INLINE void PS_GPU::Update_CLUT_Cache(uint16 raw_clut)
 
    for(unsigned i = 0; i < count; i++)
    {
-    CLUT_Cache[i] = gpulp[(cxo + i) & 0x3FF];
+    CLUT_Cache[i] = texel_fetch((cxo + i) & 0x3FF, y);
    }
 
    CLUT_Cache_VB = new_ccvb;
@@ -165,7 +240,8 @@ INLINE uint16 PS_GPU::GetTexel(uint32 u_arg, uint32 v_arg)
      uint32 u_ext = ((u_arg & SUCV.TWX_AND) + SUCV.TWX_ADD);
      uint32 fbtex_x = ((u_ext >> (2 - TexMode_TA))) & 1023;
      uint32 fbtex_y = (v_arg & SUCV.TWY_AND) + SUCV.TWY_ADD;
-     uint32 gro = fbtex_y * 1024U + fbtex_x;
+     //uint32 gro = (fbtex_y << UPSCALE_SHIFT) * ((1024U + fbtex_x) << UPSCALE_SHIFT);
+     uint32 gro = (fbtex_y) * ((1024U + fbtex_x));
 
      decltype(&TexCache[0]) c;
 
@@ -184,14 +260,15 @@ INLINE uint16 PS_GPU::GetTexel(uint32 u_arg, uint32 v_arg)
       // We'll be conservative and just go with 4 for now, until we can run some tests with triangles too.
       //
       DrawTimeAvail -= 4;
-      c->Data[0] = (&GPURAM[0][0])[gro &~ 0x3];
-      c->Data[1] = (&GPURAM[0][1])[gro &~ 0x3];
-      c->Data[2] = (&GPURAM[0][2])[gro &~ 0x3];
-      c->Data[3] = (&GPURAM[0][3])[gro &~ 0x3];
+      c->Data[0] = (&GPURAM[0][0])[gro &~ 0x3];// maybe add << UPSCALE_SHIFT to x and y co-ord?
+      c->Data[1] = (&GPURAM[0][1])[gro &~ 0x3];// maybe add << UPSCALE_SHIFT to x and y co-ord?
+      c->Data[2] = (&GPURAM[0][2])[gro &~ 0x3];// maybe add << UPSCALE_SHIFT to x and y co-ord?
+      c->Data[3] = (&GPURAM[0][3])[gro &~ 0x3];// maybe add << UPSCALE_SHIFT to x and y co-ord?
       c->Tag = (gro &~ 0x3);
      }
 
-     uint16 fbw = c->Data[gro & 0x3];
+     //uint16 fbw = c->Data[gro & 0x3];
+     uint16 fbw = texel_fetch(fbtex_x, fbtex_y);
 
      if(TexMode_TA != 2)
      {
