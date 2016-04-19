@@ -19,7 +19,7 @@ template<int BlendMode, bool MaskEval_TA, bool textured>
 INLINE void PS_GPU::PlotPixel(uint32 x, uint32 y, uint16 fore_pix)
 {
  // More Y precision bits than GPU RAM installed in (non-arcade, at least) Playstation hardware.
- y &= (512 << UPSCALE_SHIFT) - 1;
+ y &= (512 << upscale_shift) - 1;
 
  if(BlendMode >= 0 && (fore_pix & 0x8000))
  {
@@ -240,7 +240,7 @@ INLINE uint16 PS_GPU::GetTexel(uint32 u_arg, uint32 v_arg)
      uint32 u_ext = ((u_arg & SUCV.TWX_AND) + SUCV.TWX_ADD);
      uint32 fbtex_x = ((u_ext >> (2 - TexMode_TA))) & 1023;
      uint32 fbtex_y = (v_arg & SUCV.TWY_AND) + SUCV.TWY_ADD;
-//     //uint32 gro = (fbtex_y << UPSCALE_SHIFT) * ((1024U + fbtex_x) << UPSCALE_SHIFT);
+//     //uint32 gro = (fbtex_y << upscale_shift) * ((1024U + fbtex_x) << upscale_shift);
 //     uint32 gro = (fbtex_y) * ((1024U + fbtex_x));
 //
 //     decltype(&TexCache[0]) c;
@@ -260,10 +260,10 @@ INLINE uint16 PS_GPU::GetTexel(uint32 u_arg, uint32 v_arg)
 //      // We'll be conservative and just go with 4 for now, until we can run some tests with triangles too.
 //      //
 //      DrawTimeAvail -= 4;
-//      c->Data[0] = (&GPURAM[0][0])[gro &~ 0x3];// maybe add << UPSCALE_SHIFT to x and y co-ord?
-//      c->Data[1] = (&GPURAM[0][1])[gro &~ 0x3];// maybe add << UPSCALE_SHIFT to x and y co-ord?
-//      c->Data[2] = (&GPURAM[0][2])[gro &~ 0x3];// maybe add << UPSCALE_SHIFT to x and y co-ord?
-//      c->Data[3] = (&GPURAM[0][3])[gro &~ 0x3];// maybe add << UPSCALE_SHIFT to x and y co-ord?
+//      c->Data[0] = (&GPURAM[0][0])[gro &~ 0x3];// maybe add << upscale_shift to x and y co-ord?
+//      c->Data[1] = (&GPURAM[0][1])[gro &~ 0x3];// maybe add << upscale_shift to x and y co-ord?
+//      c->Data[2] = (&GPURAM[0][2])[gro &~ 0x3];// maybe add << upscale_shift to x and y co-ord?
+//      c->Data[3] = (&GPURAM[0][3])[gro &~ 0x3];// maybe add << upscale_shift to x and y co-ord?
 //      c->Tag = (gro &~ 0x3);
 //     }
 //

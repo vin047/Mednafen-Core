@@ -140,14 +140,14 @@ static INLINE void AddIDeltas_DY(i_group &ig, const i_deltas &idl, uint32 count 
 template<bool goraud, bool textured, int BlendMode, bool TexMult, uint32 TexMode_TA, bool MaskEval_TA>
 INLINE void PS_GPU::DrawSpan(int y, const int32 x_start, const int32 x_bound, i_group ig, const i_deltas &idl)
 {
-  if(LineSkipTest(y >> UPSCALE_SHIFT))
+  if(LineSkipTest(y >> upscale_shift))
    return;
 
   int32 x_ig_adjust = x_start;
   int32 w = x_bound - x_start;
   int32 x = sign_x_to_s32(11, x_start);
-  int32 clipx0 = ClipX0 << UPSCALE_SHIFT;
-  int32 clipx1 = ClipX1 << UPSCALE_SHIFT;
+  int32 clipx0 = ClipX0 << upscale_shift;
+  int32 clipx1 = ClipX1 << upscale_shift;
 
   if(x < clipx0)
   {
@@ -169,11 +169,11 @@ INLINE void PS_GPU::DrawSpan(int y, const int32 x_start, const int32 x_bound, i_
   AddIDeltas_DY<goraud, textured>(ig, idl, y);
 
   if(goraud || textured)
-   DrawTimeAvail -= (w * 2) >> UPSCALE_SHIFT;
+   DrawTimeAvail -= (w * 2) >> upscale_shift;
   else if((BlendMode >= 0) || MaskEval_TA)
-   DrawTimeAvail -= ((w >> UPSCALE_SHIFT) + (((w >> UPSCALE_SHIFT) + 1) >> 1));
-  else if((y & (UPSCALE - 1)) == 0)
-   DrawTimeAvail -= w >> UPSCALE_SHIFT;
+   DrawTimeAvail -= ((w >> upscale_shift) + (((w >> upscale_shift) + 1) >> 1));
+  else if((y & (upscale() - 1)) == 0)
+   DrawTimeAvail -= w >> upscale_shift;
 
   do
   {
@@ -298,12 +298,12 @@ INLINE void PS_GPU::DrawTriangle(tri_vertex *vertices)
  // Upscale
  for(int i = 0; i < 3; i++)
  {
-  vertices[i].x <<= UPSCALE_SHIFT;
-  vertices[i].y <<= UPSCALE_SHIFT;
+  vertices[i].x <<= upscale_shift;
+  vertices[i].y <<= upscale_shift;
  }
 
- int32 clipy0 = ClipY0 << UPSCALE_SHIFT;
- int32 clipy1 = ClipY1 << UPSCALE_SHIFT;
+ int32 clipy0 = ClipY0 << upscale_shift;
+ int32 clipy1 = ClipY1 << upscale_shift;
 
  if(!CalcIDeltas<goraud, textured>(idl, vertices[0], vertices[1], vertices[2]))
   return;
@@ -324,6 +324,23 @@ INLINE void PS_GPU::DrawTriangle(tri_vertex *vertices)
  {
   ig.u = (COORD_MF_INT(vertices[core_vertex].u) + (1 << (COORD_FBS - 1))) << COORD_POST_PADDING;
   ig.v = (COORD_MF_INT(vertices[core_vertex].v) + (1 << (COORD_FBS - 1))) << COORD_POST_PADDING;
+
+  if(upscale_shift > 0)
+  {
+   // Bias the texture coordinates so that it rounds to the
+   // correct value when the game is mapping a 2D sprite using
+   // triangles. Otherwise this could cause a small "shift" in
+   // the texture coordinates when upscaling
+
+   if(idl.du_dy == 0 && (int32)idl.du_dx > 0)
+   {
+    ig.u -= (1 << (COORD_FBS - 1 - upscale_shift)) << COORD_POST_PADDING;
+   }
+   if(idl.dv_dx == 0 && (int32)idl.dv_dy > 0)
+   {
+    ig.v -= (1 << (COORD_FBS - 1 - upscale_shift)) << COORD_POST_PADDING;
+   }
+  }
  }
 
  ig.r = (COORD_MF_INT(vertices[core_vertex].r) + (1 << (COORD_FBS - 1))) << COORD_POST_PADDING;

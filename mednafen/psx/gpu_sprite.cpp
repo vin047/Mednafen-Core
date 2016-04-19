@@ -32,7 +32,7 @@ void PS_GPU::DrawSprite(int32 x_arg, int32 y_arg, int32 w, int32 h, uint8 u_arg,
 
  int32 x_start, x_bound;
  int32 y_start, y_bound;
- uint16 u, v;
+ uint8 u, v;
  int v_inc = 1, u_inc = 1;
 
  //printf("[GPU] Sprite: x=%d, y=%d, w=%d, h=%d\n", x_arg, y_arg, w, h);
@@ -94,7 +94,7 @@ void PS_GPU::DrawSprite(int32 x_arg, int32 y_arg, int32 w, int32 h, uint8 u_arg,
 
  for(int32 y = y_start; MDFN_LIKELY(y < y_bound); y++)
  {
-  uint16 u_r;
+  uint8 u_r;
 
   if(textured)
    u_r = u;
