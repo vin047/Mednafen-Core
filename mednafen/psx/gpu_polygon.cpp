@@ -140,38 +140,40 @@ static INLINE void AddIDeltas_DY(i_group &ig, const i_deltas &idl, uint32 count 
 template<bool goraud, bool textured, int BlendMode, bool TexMult, uint32 TexMode_TA, bool MaskEval_TA>
 INLINE void PS_GPU::DrawSpan(int y, const int32 x_start, const int32 x_bound, i_group ig, const i_deltas &idl)
 {
-  if(LineSkipTest(y))
+  if(LineSkipTest(y >> UPSCALE_SHIFT))
    return;
 
   int32 x_ig_adjust = x_start;
   int32 w = x_bound - x_start;
   int32 x = sign_x_to_s32(11, x_start);
+  int32 clipx0 = ClipX0 << UPSCALE_SHIFT;
+  int32 clipx1 = ClipX1 << UPSCALE_SHIFT;
 
-  if(x < ClipX0)
+  if(x < clipx0)
   {
-   int32 delta = ClipX0 - x;
+   int32 delta = clipx0 - x;
    x_ig_adjust += delta;
    x += delta;
    w -= delta;
   }
 
-  if((x + w) > (ClipX1 + 1))
-   w = ClipX1 + 1 - x;
+  if((x + w) > (clipx1 + 1))
+   w = clipx1 + 1 - x;
 
   if(w <= 0)
    return;
 
-  //printf("%d %d %d %d\n", x, w, ClipX0, ClipX1);
+  //printf("%d %d %d %d\n", x, w, clipx0, clipx1);
 
   AddIDeltas_DX<goraud, textured>(ig, idl, x_ig_adjust);
   AddIDeltas_DY<goraud, textured>(ig, idl, y);
 
   if(goraud || textured)
-   DrawTimeAvail -= w * 2;
+   DrawTimeAvail -= (w * 2) >> UPSCALE_SHIFT;
   else if((BlendMode >= 0) || MaskEval_TA)
-   DrawTimeAvail -= w + ((w + 1) >> 1);
-  else
-   DrawTimeAvail -= w;
+   DrawTimeAvail -= ((w >> UPSCALE_SHIFT) + (((w >> UPSCALE_SHIFT) + 1) >> 1));
+  else if((y & (UPSCALE - 1)) == 0)
+   DrawTimeAvail -= w >> UPSCALE_SHIFT;
 
   do
   {
@@ -179,7 +181,7 @@ INLINE void PS_GPU::DrawSpan(int y, const int32 x_start, const int32 x_bound, i_
    const uint32 g = ig.g >> (COORD_FBS + COORD_POST_PADDING);
    const uint32 b = ig.b >> (COORD_FBS + COORD_POST_PADDING);
 
-   //assert(x >= ClipX0 && x <= ClipX1);
+   //assert(x >= clipx0 && x <= clipx1);
 
    if(textured)
    {
@@ -292,6 +294,16 @@ INLINE void PS_GPU::DrawTriangle(tri_vertex *vertices)
   //PSX_WARNING("[GPU] Triangle width too large: %d %d %d", abs(vertices[2].x - vertices[0].x), abs(vertices[2].x - vertices[1].x), abs(vertices[1].x - vertices[0].x));
   return;
  }
+
+ // Upscale
+ for(int i = 0; i < 3; i++)
+ {
+  vertices[i].x <<= UPSCALE_SHIFT;
+  vertices[i].y <<= UPSCALE_SHIFT;
+ }
+
+ int32 clipy0 = ClipY0 << UPSCALE_SHIFT;
+ int32 clipy1 = ClipY1 << UPSCALE_SHIFT;
 
  if(!CalcIDeltas<goraud, textured>(idl, vertices[0], vertices[1], vertices[2]))
   return;
@@ -449,10 +461,10 @@ INLINE void PS_GPU::DrawTriangle(tri_vertex *vertices)
     //
     int32 y = sign_x_to_s32(11, yi);
 
-    if(y < ClipY0)
+    if(y < clipy0)
      break;
 
-    if(y > ClipY1)
+    if(y > clipy1)
     {
      DrawTimeAvail -= 2;
      continue;
@@ -467,10 +479,10 @@ INLINE void PS_GPU::DrawTriangle(tri_vertex *vertices)
    {
     int32 y = sign_x_to_s32(11, yi);
 
-    if(y > ClipY1)
+    if(y > clipy1)
      break;
 
-    if(y < ClipY0)
+    if(y < clipy0)
     {
      DrawTimeAvail -= 2;
      goto skipit;

@@ -230,7 +230,7 @@ void PS_GPU::SoftReset(void) // Control command 0x00
 
 void PS_GPU::Power(void)
 {
- memset(GPURAM, 0, sizeof(GPURAM));
+ memset(GPURAM, 0, VRAM_NPIXELS * sizeof(uint16));
 
  memset(CLUT_Cache, 0, sizeof(CLUT_Cache));
  CLUT_Cache_VB = ~0U;
@@ -365,7 +365,7 @@ INLINE void PS_GPU::Command_FBFill(const uint32 *cb)
   {
    const int32 d_x = (x + destX) & 1023;
 
-   GPURAM[d_y][d_x] = fill_value;
+   texel_put(d_x, d_y, fill_value);
   }
  }
 }
@@ -403,7 +403,8 @@ INLINE void PS_GPU::Command_FBCopy(const uint32 *cb)
     int32 s_y = (y + sourceY) & 511;
     int32 s_x = (x + chunk_x + sourceX) & 1023;
 
-    tmpbuf[chunk_x] = GPURAM[s_y][s_x];
+    // XXX make upscaling-friendly, as it is we copy at 1x
+    tmpbuf[chunk_x] = texel_fetch(s_x, s_y);
    }
 
    for(int32 chunk_x = 0; chunk_x < chunk_x_max; chunk_x++)
@@ -411,8 +412,8 @@ INLINE void PS_GPU::Command_FBCopy(const uint32 *cb)
     int32 d_y = (y + destY) & 511;
     int32 d_x = (x + chunk_x + destX) & 1023;
 
-    if(!(GPURAM[d_y][d_x] & MaskEvalAND))
-     GPURAM[d_y][d_x] = tmpbuf[chunk_x] | MaskSetOR;
+    if(!(texel_fetch(d_x, d_y) & MaskEvalAND))
+     texel_put(d_x, d_y, tmpbuf[chunk_x] | MaskSetOR);
    }
   }
  }
@@ -727,8 +728,8 @@ void PS_GPU::ProcessFIFO(void)
 
   	for(int i = 0; i < 2; i++)
   	{
-   	 if(!(GPURAM[FBRW_CurY & 511][FBRW_CurX & 1023] & MaskEvalAND))
-    	  GPURAM[FBRW_CurY & 511][FBRW_CurX & 1023] = InData | MaskSetOR;
+        if(!(texel_fetch(FBRW_CurX & 1023, FBRW_CurY & 511) & MaskEvalAND))
+         texel_put(FBRW_CurX & 1023, FBRW_CurY & 511, InData | MaskSetOR);
 
 	 FBRW_CurX++;
    	 if(FBRW_CurX == (FBRW_X + FBRW_W))
@@ -990,7 +991,7 @@ INLINE uint32 PS_GPU::ReadData(void)
   DataReadBufferEx = 0;
   for(int i = 0; i < 2; i++)
   {
-   DataReadBufferEx |= GPURAM[FBRW_CurY & 511][FBRW_CurX & 1023] << (i * 16);
+   DataReadBufferEx |= texel_fetch(FBRW_CurX & 1023, FBRW_CurY & 511) << (i * 16);
 
    FBRW_CurX++;
    if(FBRW_CurX == (FBRW_X + FBRW_W))
@@ -1092,26 +1093,33 @@ static INLINE uint32 MDFN_NOWARN_UNUSED ShiftHelper(uint32 val, int shamt, uint3
 #pragma GCC optimize("no-unroll-loops,no-peel-loops,no-crossjumping")
 INLINE void PS_GPU::ReorderRGB_Var(uint32 out_Rshift, uint32 out_Gshift, uint32 out_Bshift, bool bpp24, const uint16 *src, uint32 *dest, const int32 dx_start, const int32 dx_end, int32 fb_x)
 {
+     int32 fb_mask = ((0x7FF << UPSCALE_SHIFT) + UPSCALE - 1);
+
      if(bpp24)	// 24bpp
      {
-      for(int32 x = dx_start; MDFN_LIKELY(x < dx_end); x++)
+      for(int32 x = dx_start; MDFN_LIKELY(x < dx_end); x+= UPSCALE)
       {
        uint32 srcpix;
 
-       srcpix = src[(fb_x >> 1) + 0] | (src[((fb_x >> 1) + 1) & 0x7FF] << 16);
-       srcpix >>= (fb_x & 1) * 8;
+       srcpix = src[(fb_x >> 1) + 0] | (src[((fb_x >> 1) + (1 << UPSCALE_SHIFT)) & fb_mask] << 16);
+       srcpix >>= ((fb_x >> UPSCALE_SHIFT) & 1) * 8;
 
-       dest[x] = (((srcpix >> 0) << out_Rshift) & (0xFF << out_Rshift)) | (((srcpix >> 8) << out_Gshift) & (0xFF << out_Gshift)) |
+       uint32 color = (((srcpix >> 0) << out_Rshift) & (0xFF << out_Rshift)) | (((srcpix >> 8) << out_Gshift) & (0xFF << out_Gshift)) |
        		 (((srcpix >> 16) << out_Bshift) & (0xFF << out_Bshift));
 
-       fb_x = (fb_x + 3) & 0x7FF;
+       for (int i = 0; i < UPSCALE; i++)
+       {
+        dest[x + i] = color;
+       }
+
+       fb_x = (fb_x + (3 << UPSCALE_SHIFT)) & fb_mask;
       }
      }				// 15bpp
      else
      {
       for(int32 x = dx_start; MDFN_LIKELY(x < dx_end); x++)
       {
-       uint32 srcpix = src[fb_x >> 1];
+       uint32 srcpix = src[(fb_x >> 1)];
 
 #if 1
        dest[x] = OutputLUT[(uint8)srcpix] | (OutputLUT + 256)[(srcpix >> 8) & 0x7F];
@@ -1120,7 +1128,7 @@ INLINE void PS_GPU::ReorderRGB_Var(uint32 out_Rshift, uint32 out_Gshift, uint32 
 	         ShiftHelper(srcpix, out_Gshift + 3 -  5, (0xF8 << out_Gshift)) |
 	         ShiftHelper(srcpix, out_Bshift + 3 - 10, (0xF8 << out_Bshift));
 #endif
-       fb_x = (fb_x + 2) & 0x7FF;
+       fb_x = (fb_x + 2) & fb_mask;
       }
      }
 
@@ -1387,7 +1395,6 @@ pscpu_timestamp_t PS_GPU::Update(const pscpu_timestamp_t sys_timestamp)
      int32 dx_start = HorizStart, dx_end = HorizEnd;
 
      dest_line = ((scanline - FirstVisibleLine) << espec->InterlaceOn) + espec->InterlaceField;
-     dest = surface->pixels + (drxbo - dmpa) + dest_line * surface->pitch32;
 
      if(dx_end < dx_start)
       dx_end = dx_start;
@@ -1416,26 +1423,38 @@ pscpu_timestamp_t PS_GPU::Update(const pscpu_timestamp_t sys_timestamp)
      LineWidths[dest_line] = dmw - dmpa * 2;
 
      {
-      const uint16 *src = GPURAM[DisplayFB_CurLineYReadout];
       const uint32 black = surface->MakeColor(0, 0, 0);
 
-      for(int32 x = 0; x < dx_start; x++)
-       dest[x] = black;
+      // Convert the necessary variables to the upscaled version
+      uint32 y = DisplayFB_CurLineYReadout << UPSCALE_SHIFT;
+      uint32 udmw     = dmw      << UPSCALE_SHIFT;
+      int32 udx_start = dx_start << UPSCALE_SHIFT;
+      int32 udx_end   = dx_end   << UPSCALE_SHIFT;
+      int32 ufb_x     = fb_x     << UPSCALE_SHIFT;
 
-      //printf("%d %d %d - %d %d\n", scanline, dx_start, dx_end, HorizStart, HorizEnd);
-      if(surface->format.Rshift == 0 && surface->format.Gshift == 8 && surface->format.Bshift == 16)
-       ReorderRGB<0, 8, 16>(DisplayMode & 0x10, src, dest, dx_start, dx_end, fb_x);
-      else if(surface->format.Rshift == 8 && surface->format.Gshift == 16 && surface->format.Bshift == 24)
-       ReorderRGB<8, 16, 24>(DisplayMode & 0x10, src, dest, dx_start, dx_end, fb_x);
-      else if(surface->format.Rshift == 16 && surface->format.Gshift == 8 && surface->format.Bshift == 0)
-       ReorderRGB<16, 8, 0>(DisplayMode & 0x10, src, dest, dx_start, dx_end, fb_x);
-      else if(surface->format.Rshift == 24 && surface->format.Gshift == 16 && surface->format.Bshift == 8)
-       ReorderRGB<24, 16, 8>(DisplayMode & 0x10, src, dest, dx_start, dx_end, fb_x);
-      else
-       ReorderRGB_Var(surface->format.Rshift, surface->format.Gshift, surface->format.Bshift, DisplayMode & 0x10, src, dest, dx_start, dx_end, fb_x);
+      for (uint32 i = 0; i < UPSCALE; i++)
+      {
+       const uint16 *src = GPURAM[y + i];
+       dest = surface->pixels + (drxbo - dmpa) + ((dest_line << UPSCALE_SHIFT) + i) * surface->pitch32;
 
-      for(uint32 x = dx_end; x < dmw; x++)
-       dest[x] = black;
+       for(int32 x = 0; x < udx_start; x++)
+        dest[x] = black;
+
+       //printf("%d %d %d - %d %d\n", scanline, dx_start, dx_end, HorizStart, HorizEnd);
+       if(surface->format.Rshift == 0 && surface->format.Gshift == 8 && surface->format.Bshift == 16)
+        ReorderRGB<0, 8, 16>(DisplayMode & 0x10, src, dest, udx_start, udx_end, ufb_x);
+       else if(surface->format.Rshift == 8 && surface->format.Gshift == 16 && surface->format.Bshift == 24)
+        ReorderRGB<8, 16, 24>(DisplayMode & 0x10, src, dest, udx_start, udx_end, ufb_x);
+       else if(surface->format.Rshift == 16 && surface->format.Gshift == 8 && surface->format.Bshift == 0)
+        ReorderRGB<16, 8, 0>(DisplayMode & 0x10, src, dest, udx_start, udx_end, ufb_x);
+       else if(surface->format.Rshift == 24 && surface->format.Gshift == 16 && surface->format.Bshift == 8)
+        ReorderRGB<24, 16, 8>(DisplayMode & 0x10, src, dest, udx_start, udx_end, ufb_x);
+       else
+        ReorderRGB_Var(surface->format.Rshift, surface->format.Gshift, surface->format.Bshift, DisplayMode & 0x10, src, dest, udx_start, udx_end, ufb_x);
+
+       for(uint32 x = udx_end; x < udmw; x++)
+        dest[x] = black;
+      }
      }
 
      //if(scanline == 64)
