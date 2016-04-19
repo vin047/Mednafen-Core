@@ -11,14 +11,6 @@ namespace MDFN_IEN_PSX
 
 class PS_GPU;
 
-#define UPSCALE_SHIFT 1U
-#define UPSCALE (1U << UPSCALE_SHIFT)
-
-#define VRAM_WIDTH (1024U << UPSCALE_SHIFT)
-#define VRAM_HEIGHT (512U << UPSCALE_SHIFT)
-
-#define VRAM_NPIXELS (VRAM_WIDTH * VRAM_HEIGHT)
-
 struct CTEntry
 {
  void (*func[4][8])(PS_GPU* g, const uint32 *cb);
@@ -109,22 +101,22 @@ class PS_GPU
  // Return a pixel from VRAM, ignoring the internal upscaling
  INLINE uint16 texel_fetch(uint32 x, uint32 y)
  {
-  return GPU_RAM[y << UPSCALE_SHIFT][x << UPSCALE_SHIFT];
+  return vram_fetch(x << upscale_shift, y << upscale_shift);
  }
 
  // Set a pixel in VRAM, upscaling it if necessary
  INLINE void texel_put(uint32 x, uint32 y, uint16 v)
  {
-  x <<= UPSCALE_SHIFT;
-  y <<= UPSCALE_SHIFT;
+  x <<= upscale_shift;
+  y <<= upscale_shift;
 
   // Duplicate the pixel as many times as necessary (nearest
   // neighbour upscaling)
-  for (uint32 dy = 0; dy < UPSCALE; dy++)
+  for (uint32 dy = 0; dy < upscale(); dy++)
   {
-   for (uint32 dx = 0; dx < UPSCALE; dx++)
+   for (uint32 dx = 0; dx < upscale(); dx++)
    {
-    GPU_RAM[y + dy][x + dx] = v;
+    vram_put(x + dx, y + dy, v);
    }
   }
  }
@@ -132,13 +124,23 @@ class PS_GPU
  // Return a pixel from VRAM
  INLINE uint16 vram_fetch(uint32 x, uint32 y)
  {
-  return GPU_RAM[y][x];
+  return vram[(y << (10 + upscale_shift)) | x];
  }
 
  // Set a pixel in VRAM
  INLINE void vram_put(uint32 x, uint32 y, uint16 v)
  {
-  GPU_RAM[y][x] = v;
+  vram[(y << (10 + upscale_shift)) | x] = v;
+ }
+
+ INLINE uint32 upscale()
+ {
+  return 1U << upscale_shift;
+ }
+
+ INLINE unsigned vram_npixels()
+ {
+  return 512 * 1024 * upscale() * upscale();
  }
 
  private:
@@ -348,8 +350,8 @@ class PS_GPU
 
  pscpu_timestamp_t lastts;
 
- // Y, X
- uint16 GPU_RAM[VRAM_HEIGHT][VRAM_WIDTH];
+ uint8 upscale_shift = 1;
+ uint16 vram[(1024*512) << 4]; // 16MB
 
  //
  //

@@ -230,7 +230,7 @@ void PS_GPU::SoftReset(void) // Control command 0x00
 
 void PS_GPU::Power(void)
 {
- memset(GPU_RAM, 0, VRAM_NPIXELS * sizeof(uint16));
+ memset(vram, 0, vram_npixels() * sizeof(*vram));
 
  memset(CLUT_Cache, 0, sizeof(CLUT_Cache));
  CLUT_Cache_VB = ~0U;
@@ -1093,26 +1093,26 @@ static INLINE uint32 MDFN_NOWARN_UNUSED ShiftHelper(uint32 val, int shamt, uint3
 #pragma GCC optimize("no-unroll-loops,no-peel-loops,no-crossjumping")
 INLINE void PS_GPU::ReorderRGB_Var(uint32 out_Rshift, uint32 out_Gshift, uint32 out_Bshift, bool bpp24, const uint16 *src, uint32 *dest, const int32 dx_start, const int32 dx_end, int32 fb_x)
 {
-     int32 fb_mask = ((0x7FF << UPSCALE_SHIFT) + UPSCALE - 1);
+     int32 fb_mask = ((0x7FF << upscale_shift) + upscale() - 1);
 
      if(bpp24)	// 24bpp
      {
-      for(int32 x = dx_start; MDFN_LIKELY(x < dx_end); x+= UPSCALE)
+      for(int32 x = dx_start; MDFN_LIKELY(x < dx_end); x+= upscale())
       {
        uint32 srcpix;
 
-       srcpix = src[(fb_x >> 1) + 0] | (src[((fb_x >> 1) + (1 << UPSCALE_SHIFT)) & fb_mask] << 16);
-       srcpix >>= ((fb_x >> UPSCALE_SHIFT) & 1) * 8;
+       srcpix = src[(fb_x >> 1) + 0] | (src[((fb_x >> 1) + (1 << upscale_shift)) & fb_mask] << 16);
+       srcpix >>= ((fb_x >> upscale_shift) & 1) * 8;
 
        uint32 color = (((srcpix >> 0) << out_Rshift) & (0xFF << out_Rshift)) | (((srcpix >> 8) << out_Gshift) & (0xFF << out_Gshift)) |
        		 (((srcpix >> 16) << out_Bshift) & (0xFF << out_Bshift));
 
-       for (int i = 0; i < UPSCALE; i++)
+       for (int i = 0; i < upscale(); i++)
        {
         dest[x + i] = color;
        }
 
-       fb_x = (fb_x + (3 << UPSCALE_SHIFT)) & fb_mask;
+       fb_x = (fb_x + (3 << upscale_shift)) & fb_mask;
       }
      }				// 15bpp
      else
@@ -1426,16 +1426,16 @@ pscpu_timestamp_t PS_GPU::Update(const pscpu_timestamp_t sys_timestamp)
       const uint32 black = surface->MakeColor(0, 0, 0);
 
       // Convert the necessary variables to the upscaled version
-      uint32 y = DisplayFB_CurLineYReadout << UPSCALE_SHIFT;
-      uint32 udmw     = dmw      << UPSCALE_SHIFT;
-      int32 udx_start = dx_start << UPSCALE_SHIFT;
-      int32 udx_end   = dx_end   << UPSCALE_SHIFT;
-      int32 ufb_x     = fb_x     << UPSCALE_SHIFT;
+      uint32 y = DisplayFB_CurLineYReadout << upscale_shift;
+      uint32 udmw     = dmw      << upscale_shift;
+      int32 udx_start = dx_start << upscale_shift;
+      int32 udx_end   = dx_end   << upscale_shift;
+      int32 ufb_x     = fb_x     << upscale_shift;
 
-      for (uint32 i = 0; i < UPSCALE; i++)
+      for (uint32 i = 0; i < upscale(); i++)
       {
-       const uint16 *src = GPU_RAM[y + i];
-       dest = surface->pixels + (drxbo - dmpa) + ((dest_line << UPSCALE_SHIFT) + i) * surface->pitch32;
+       const uint16 *src = vram + ((y + i) << (10 + upscale_shift));
+       dest = surface->pixels + (drxbo - dmpa) + ((dest_line << upscale_shift) + i) * surface->pitch32;
 
        for(int32 x = 0; x < udx_start; x++)
         dest[x] = black;
@@ -1460,10 +1460,12 @@ pscpu_timestamp_t PS_GPU::Update(const pscpu_timestamp_t sys_timestamp)
      //if(scanline == 64)
      // printf("%u\n", sys_timestamp - ((uint64)gpu_clocks * 65536) / GPUClockRatio);
 
+     // XXX fixme when upscaling is active
      PSX_GPULineHook(sys_timestamp, sys_timestamp - ((uint64)gpu_clocks * 65536) / GPUClockRatio, scanline == 0, dest, &surface->format, dmw, (hmc_to_visible - 220) / DotClockRatios[dmc], (HardwarePALType ? 53203425 : 53693182) / DotClockRatios[dmc], DotClockRatios[dmc]);
     }
     else
     {
+     // XXX fixme when upscaling is active (?)
      PSX_GPULineHook(sys_timestamp, sys_timestamp - ((uint64)gpu_clocks * 65536) / GPUClockRatio, scanline == 0, NULL, &surface->format, 0, 0, 0, 0);
     }
 
@@ -1537,6 +1539,32 @@ void PS_GPU::StateAction(StateMem *sm, const unsigned load, const bool data_only
  uint32 TexCache_Tag[256];
  uint16 TexCache_Data[256][4];
 
+ uint16 *vram_new = NULL;
+
+ if (upscale_shift == 0)
+ {
+  // No upscaling, we can dump the VRAM contents directly
+  vram_new = vram;
+ }
+ else
+ {
+  // We have increased internal resolution, savestates are always
+  // made at 1x for compatibility
+  vram_new = new uint16[1024 * 512];
+
+  if (!load)
+  {
+    // We must downscale the current VRAM contents back to 1x
+    for (unsigned y = 0; y < 512; y++)
+    {
+     for (unsigned x = 0; x < 1024; x++)
+     {
+      vram_new[y * 1024 + x] = texel_fetch(x, y);
+     }
+    }
+  }
+ }
+
  for(unsigned i = 0; i < 256; i++)
  {
   TexCache_Tag[i] = TexCache[i].Tag;
@@ -1547,7 +1575,9 @@ void PS_GPU::StateAction(StateMem *sm, const unsigned load, const bool data_only
 
  SFORMAT StateRegs[] =
  {
-  SFARRAY16(&GPU_RAM[0][0], sizeof(GPU_RAM) / sizeof(GPU_RAM[0][0])),
+  // Hardcode entry name to remain backward compatible with the
+  // previous fixed internal resolution code
+  SFARRAY16N(vram_new, 1024 * 512, "&GPURAM[0][0]"),
 
   SFARRAY16(&CLUT_Cache[0], sizeof(CLUT_Cache) / sizeof(CLUT_Cache[0])),
   SFVAR(CLUT_Cache_VB),
@@ -1653,6 +1683,24 @@ void PS_GPU::StateAction(StateMem *sm, const unsigned load, const bool data_only
  };
 
  MDFNSS_StateAction(sm, load, data_only, StateRegs, "GPU");
+
+ if (upscale_shift > 0)
+ {
+  if (load)
+  {
+   // Restore upscaled VRAM from savestate
+   for (unsigned y = 0; y < 512; y++)
+   {
+    for (unsigned x = 0; x < 1024; x++)
+    {
+     texel_put(x, y, vram_new[y * 1024 + x]);
+    }
+   }
+  }
+
+   delete [] vram_new;
+   vram_new = NULL;
+ }
 
  if(load)
  {

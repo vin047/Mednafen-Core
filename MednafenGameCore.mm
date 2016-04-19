@@ -42,7 +42,7 @@
 #import "OEVBSystemResponderClient.h"
 #import "OEWSSystemResponderClient.h"
 
-#define UPSCALE_SHIFT 1U
+uint8 psx_gpu_upscale_shift = 1;
 
 static MDFNGI *game;
 static MDFN_Surface *surf;
@@ -973,8 +973,8 @@ static void emulation_run()
 
     int width  = game->fb_width;
     int height = game->fb_height;
-    width  <<= UPSCALE_SHIFT;
-    height <<= UPSCALE_SHIFT;
+    width  <<= psx_gpu_upscale_shift;
+    height <<= psx_gpu_upscale_shift;
 
     surf = new MDFN_Surface(NULL, width, height, width, pix_fmt);
 
@@ -1050,12 +1050,12 @@ static void emulation_run()
 
 - (OEIntRect)screenRect
 {
-    return OEIntRectMake(videoOffsetX, videoOffsetY, videoWidth << UPSCALE_SHIFT, videoHeight << UPSCALE_SHIFT);
+    return OEIntRectMake(videoOffsetX, videoOffsetY, videoWidth << psx_gpu_upscale_shift, videoHeight << psx_gpu_upscale_shift);
 }
 
 - (OEIntSize)bufferSize
 {
-    return OEIntSizeMake(game->fb_width << UPSCALE_SHIFT, game->fb_height << UPSCALE_SHIFT);
+    return OEIntSizeMake(game->fb_width << psx_gpu_upscale_shift, game->fb_height << psx_gpu_upscale_shift);
 }
 
 - (OEIntSize)aspectSize
