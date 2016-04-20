@@ -240,35 +240,44 @@ INLINE uint16 PS_GPU::GetTexel(uint32 u_arg, uint32 v_arg)
      uint32 u_ext = ((u_arg & SUCV.TWX_AND) + SUCV.TWX_ADD);
      uint32 fbtex_x = ((u_ext >> (2 - TexMode_TA))) & 1023;
      uint32 fbtex_y = (v_arg & SUCV.TWY_AND) + SUCV.TWY_ADD;
-//     //uint32 gro = (fbtex_y << upscale_shift) * ((1024U + fbtex_x) << upscale_shift);
-//     uint32 gro = (fbtex_y) * ((1024U + fbtex_x));
-//
-//     decltype(&TexCache[0]) c;
-//
+     uint32 gro = fbtex_y * 1024U + fbtex_x;
+
+     decltype(&TexCache[0]) c;
+
+     switch(TexMode_TA)
+     {
+      case 0: c = &TexCache[((gro >> 2) & 0x3) | ((gro >> 8) & 0xFC)]; break;	// 64x64
+      case 1: c = &TexCache[((gro >> 2) & 0x7) | ((gro >> 7) & 0xF8)]; break;	// 64x32 (NOT 32x64!)
+      case 2: c = &TexCache[((gro >> 2) & 0x7) | ((gro >> 7) & 0xF8)]; break;	// 32x32
+     }
 //     switch(TexMode_TA)
 //     {
-//      case 0: c = &TexCache[((gro >> 2) & 0x3) | ((gro >> 8) & 0xFC)]; break;	// 64x64
-//      case 1: c = &TexCache[((gro >> 2) & 0x7) | ((gro >> 7) & 0xF8)]; break;	// 64x32 (NOT 32x64!)
-//      case 2: c = &TexCache[((gro >> 2) & 0x7) | ((gro >> 7) & 0xF8)]; break;	// 32x32
+//      case 0: c = &TexCache[((gro >> (2*(upscale_shift+1)) ) & 0x3) | ((gro >> ((2*(upscale_shift+1))+6) ) & 0xFC)]; break;   // 64x64
+//      case 1: c = &TexCache[((gro >> (2*(upscale_shift+1)) ) & 0x7) | ((gro >> ((2*(upscale_shift+1))+5) ) & 0xF8)]; break;   // 64x32 (NOT 32x64!)
+//      case 2: c = &TexCache[((gro >> (2*(upscale_shift+1)) ) & 0x7) | ((gro >> ((2*(upscale_shift+1))+5) ) & 0xF8)]; break;   // 32x32
 //     }
 //
-//     if(MDFN_UNLIKELY(c->Tag != (gro &~ 0x3)))
+//     if(MDFN_UNLIKELY(c->Tag != ( (gro >> (2*upscale_shift)) &~ 0x3)))
 //     {
-//      // SCPH-1001 old revision GPU is like(for sprites at least): (20 + 4)
-//      // SCPH-5501 new revision GPU is like(for sprites at least): (12 + 4)
-//      //
-//      // We'll be conservative and just go with 4 for now, until we can run some tests with triangles too.
-//      //
-//      DrawTimeAvail -= 4;
-//      c->Data[0] = (&GPURAM[0][0])[gro &~ 0x3];// maybe add << upscale_shift to x and y co-ord?
-//      c->Data[1] = (&GPURAM[0][1])[gro &~ 0x3];// maybe add << upscale_shift to x and y co-ord?
-//      c->Data[2] = (&GPURAM[0][2])[gro &~ 0x3];// maybe add << upscale_shift to x and y co-ord?
-//      c->Data[3] = (&GPURAM[0][3])[gro &~ 0x3];// maybe add << upscale_shift to x and y co-ord?
-//      c->Tag = (gro &~ 0x3);
-//     }
-//
-//     //uint16 fbw = c->Data[gro & 0x3];
-     uint16 fbw = texel_fetch(fbtex_x, fbtex_y);
+
+     if(MDFN_UNLIKELY(c->Tag != (gro &~ 0x3)))
+     {
+      // SCPH-1001 old revision GPU is like(for sprites at least): (20 + 4)
+      // SCPH-5501 new revision GPU is like(for sprites at least): (12 + 4)
+      //
+      // We'll be conservative and just go with 4 for now, until we can run some tests with triangles too.
+      //
+      DrawTimeAvail -= 4;
+      uint32 gro_true = (fbtex_y << upscale_shift) * (1024U << upscale_shift) + (fbtex_x << upscale_shift);
+      c->Data[0] = (&vram[0 << upscale_shift])[gro_true &~ (0x3 << upscale_shift)];
+      c->Data[1] = (&vram[1 << upscale_shift])[gro_true &~ (0x3 << upscale_shift)];
+      c->Data[2] = (&vram[2 << upscale_shift])[gro_true &~ (0x3 << upscale_shift)];
+      c->Data[3] = (&vram[3 << upscale_shift])[gro_true &~ (0x3 << upscale_shift)];
+      c->Tag = (gro &~ 0x3);
+     }
+
+     uint16 fbw = c->Data[gro & 0x3];
+     //uint16 fbw = texel_fetch(fbtex_x, fbtex_y);
 
      if(TexMode_TA != 2)
      {
