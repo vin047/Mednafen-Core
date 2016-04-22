@@ -322,8 +322,8 @@ INLINE void PS_GPU::DrawTriangle(tri_vertex *vertices)
 
  if(textured)
  {
-  ig.u = (COORD_MF_INT(vertices[core_vertex].u) + (1 << (COORD_FBS - 1))) << COORD_POST_PADDING;
-  ig.v = (COORD_MF_INT(vertices[core_vertex].v) + (1 << (COORD_FBS - 1))) << COORD_POST_PADDING;
+  ig.u = COORD_MF_INT(vertices[core_vertex].u) + (1 << (COORD_FBS - 1));
+  ig.v = COORD_MF_INT(vertices[core_vertex].v) + (1 << (COORD_FBS - 1));
 
   if(upscale_shift > 0)
   {
@@ -334,13 +334,15 @@ INLINE void PS_GPU::DrawTriangle(tri_vertex *vertices)
 
    if(idl.du_dy == 0 && (int32)idl.du_dx > 0)
    {
-    ig.u -= (1 << (COORD_FBS - 1 - upscale_shift)) << COORD_POST_PADDING;
+    ig.u -= (1 << (COORD_FBS - 1 - upscale_shift));
    }
    if(idl.dv_dx == 0 && (int32)idl.dv_dy > 0)
    {
-    ig.v -= (1 << (COORD_FBS - 1 - upscale_shift)) << COORD_POST_PADDING;
+    ig.v -= (1 << (COORD_FBS - 1 - upscale_shift));
    }
   }
+  ig.u <<= COORD_POST_PADDING;
+  ig.v <<= COORD_POST_PADDING;
  }
 
  ig.r = (COORD_MF_INT(vertices[core_vertex].r) + (1 << (COORD_FBS - 1))) << COORD_POST_PADDING;
@@ -476,7 +478,7 @@ INLINE void PS_GPU::DrawTriangle(tri_vertex *vertices)
     //
     //
     //
-    int32 y = sign_x_to_s32(11, yi);
+    int32 y = sign_x_to_s32((11 << upscale_shift), yi);
 
     if(y < clipy0)
      break;
@@ -494,7 +496,7 @@ INLINE void PS_GPU::DrawTriangle(tri_vertex *vertices)
   {
    while(MDFN_LIKELY(yi < yb))
    {
-    int32 y = sign_x_to_s32(11, yi);
+    int32 y = sign_x_to_s32((11 << upscale_shift), yi);
 
     if(y > clipy1)
      break;
