@@ -230,7 +230,7 @@ void PS_GPU::SoftReset(void) // Control command 0x00
 
 void PS_GPU::Power(void)
 {
- memset(vram, 0, vram_npixels() * sizeof(*vram));
+ vram.resize(vram_npixels());
 
  memset(CLUT_Cache, 0, sizeof(CLUT_Cache));
  CLUT_Cache_VB = ~0U;
@@ -1119,7 +1119,7 @@ INLINE void PS_GPU::ReorderRGB_Var(uint32 out_Rshift, uint32 out_Gshift, uint32 
      {
       for(int32 x = dx_start; MDFN_LIKELY(x < dx_end); x++)
       {
-       uint32 srcpix = src[(fb_x >> 1)];
+       uint32 srcpix = src[fb_x >> 1];
 
 #if 1
        dest[x] = OutputLUT[(uint8)srcpix] | (OutputLUT + 256)[(srcpix >> 8) & 0x7F];
@@ -1434,8 +1434,8 @@ pscpu_timestamp_t PS_GPU::Update(const pscpu_timestamp_t sys_timestamp)
 
       for (uint32 i = 0; i < upscale(); i++)
       {
-       const uint16 *src = vram + ((y + i) << (10 + upscale_shift));
-       dest = surface->pixels + (drxbo - dmpa) + ((dest_line << upscale_shift) + i) * surface->pitch32;
+       const uint16 *src = &vram.front() + ((y + i) << (10 + upscale_shift));
+       dest = surface->pixels + ((drxbo - dmpa) << upscale_shift) + ((dest_line << upscale_shift) + i) * surface->pitch32;
 
        for(int32 x = 0; x < udx_start; x++)
         dest[x] = black;
@@ -1544,7 +1544,7 @@ void PS_GPU::StateAction(StateMem *sm, const unsigned load, const bool data_only
  if (upscale_shift == 0)
  {
   // No upscaling, we can dump the VRAM contents directly
-  vram_new = vram;
+  vram_new = &vram.front();
  }
  else
  {

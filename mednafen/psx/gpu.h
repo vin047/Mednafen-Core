@@ -99,22 +99,22 @@ class PS_GPU
  }
 
  // Return a pixel from VRAM, ignoring the internal upscaling
- INLINE uint16 texel_fetch(uint32 x, uint32 y)
+ INLINE uint16 texel_fetch(uint32 const x, uint32 const y) const
  {
   return vram_fetch(x << upscale_shift, y << upscale_shift);
  }
 
  // Set a pixel in VRAM, upscaling it if necessary
- INLINE void texel_put(uint32 x, uint32 y, uint16 v)
+ INLINE void texel_put(uint32 x, uint32 y, uint16 const v)
  {
   x <<= upscale_shift;
   y <<= upscale_shift;
 
   // Duplicate the pixel as many times as necessary (nearest
   // neighbour upscaling)
-  for (uint32 dy = 0; dy < upscale(); dy++)
+  for (int dy = 0; dy < upscale(); dy++)
   {
-   for (uint32 dx = 0; dx < upscale(); dx++)
+   for (int dx = 0; dx < upscale(); dx++)
    {
     vram_put(x + dx, y + dy, v);
    }
@@ -122,23 +122,23 @@ class PS_GPU
  }
 
  // Return a pixel from VRAM
- INLINE uint16 vram_fetch(uint32 x, uint32 y)
+ INLINE uint16 vram_fetch(uint32 const x, uint32 const y) const
  {
-  return vram[(y << (10 + upscale_shift)) | x];
+  return vram.at((y << (10 + upscale_shift)) | x);
  }
 
  // Set a pixel in VRAM
- INLINE void vram_put(uint32 x, uint32 y, uint16 v)
+ INLINE void vram_put(uint32 const x, uint32 const y, uint16 const v)
  {
-  vram[(y << (10 + upscale_shift)) | x] = v;
+  vram.at((y << (10 + upscale_shift)) | x) = v;
  }
 
- INLINE uint32 upscale()
+ INLINE unsigned upscale() const
  {
   return 1U << upscale_shift;
  }
 
- INLINE unsigned vram_npixels()
+ INLINE unsigned vram_npixels() const
  {
   return 512 * 1024 * upscale() * upscale();
  }
@@ -351,7 +351,7 @@ class PS_GPU
  pscpu_timestamp_t lastts;
 
  uint8 upscale_shift = 1;
- uint16 vram[(1024*512) << 4]; // 16MB
+ std::vector<uint16> vram;
 
  //
  //
