@@ -145,7 +145,7 @@ INLINE void PS_GPU::DrawSpan(int y, const int32 x_start, const int32 x_bound, i_
 
   int32 x_ig_adjust = x_start;
   int32 w = x_bound - x_start;
-  int32 x = sign_x_to_s32(11, x_start);
+  int32 x = sign_x_to_s32((11 << upscale_shift), x_start);
   int32 clipx0 = ClipX0 << upscale_shift;
   int32 clipx1 = ClipX1 << upscale_shift;
 
