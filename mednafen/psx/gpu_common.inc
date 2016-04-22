@@ -250,15 +250,6 @@ INLINE uint16 PS_GPU::GetTexel(uint32 u_arg, uint32 v_arg)
       case 1: c = &TexCache[((gro >> 2) & 0x7) | ((gro >> 7) & 0xF8)]; break;	// 64x32 (NOT 32x64!)
       case 2: c = &TexCache[((gro >> 2) & 0x7) | ((gro >> 7) & 0xF8)]; break;	// 32x32
      }
-//     switch(TexMode_TA)
-//     {
-//      case 0: c = &TexCache[((gro >> (2*(upscale_shift+1)) ) & 0x3) | ((gro >> ((2*(upscale_shift+1))+6) ) & 0xFC)]; break;   // 64x64
-//      case 1: c = &TexCache[((gro >> (2*(upscale_shift+1)) ) & 0x7) | ((gro >> ((2*(upscale_shift+1))+5) ) & 0xF8)]; break;   // 64x32 (NOT 32x64!)
-//      case 2: c = &TexCache[((gro >> (2*(upscale_shift+1)) ) & 0x7) | ((gro >> ((2*(upscale_shift+1))+5) ) & 0xF8)]; break;   // 32x32
-//     }
-//
-//     if(MDFN_UNLIKELY(c->Tag != ( (gro >> (2*upscale_shift)) &~ 0x3)))
-//     {
 
      if(MDFN_UNLIKELY(c->Tag != (gro &~ 0x3)))
      {
@@ -269,15 +260,14 @@ INLINE uint16 PS_GPU::GetTexel(uint32 u_arg, uint32 v_arg)
       //
       DrawTimeAvail -= 4;
       uint32 gro_true = (fbtex_y << upscale_shift) * (1024U << upscale_shift) + (fbtex_x << upscale_shift);
-      c->Data[0] = (&vram[0 << upscale_shift])[gro_true &~ (0x3 << upscale_shift)];
-      c->Data[1] = (&vram[1 << upscale_shift])[gro_true &~ (0x3 << upscale_shift)];
-      c->Data[2] = (&vram[2 << upscale_shift])[gro_true &~ (0x3 << upscale_shift)];
-      c->Data[3] = (&vram[3 << upscale_shift])[gro_true &~ (0x3 << upscale_shift)];
+      c->Data[0] = (&vram.at(0 << upscale_shift))[gro_true &~ (0x3 << upscale_shift)];
+      c->Data[1] = (&vram.at(1 << upscale_shift))[gro_true &~ (0x3 << upscale_shift)];
+      c->Data[2] = (&vram.at(2 << upscale_shift))[gro_true &~ (0x3 << upscale_shift)];
+      c->Data[3] = (&vram.at(3 << upscale_shift))[gro_true &~ (0x3 << upscale_shift)];
       c->Tag = (gro &~ 0x3);
      }
 
      uint16 fbw = c->Data[gro & 0x3];
-     //uint16 fbw = texel_fetch(fbtex_x, fbtex_y);
 
      if(TexMode_TA != 2)
      {

@@ -152,8 +152,8 @@ void PS_GPU::DrawLine(line_point *points)
  for(int32 i = 0; i <= k; i++)	// <= is not a typo.
  {
   // Sign extension is not necessary here for x and y, due to the maximum values that ClipX1 and ClipY1 can contain.
-  int32 x = (cur_point.x >> Line_XY_FractBits) & 2047;
-  int32 y = (cur_point.y >> Line_XY_FractBits) & 2047;
+  const int32 x = (cur_point.x >> Line_XY_FractBits) & 2047;
+  const int32 y = (cur_point.y >> Line_XY_FractBits) & 2047;
   uint16 pix = 0x8000;
 
   if(!LineSkipTest(y))
