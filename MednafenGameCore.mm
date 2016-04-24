@@ -971,12 +971,10 @@ static void emulation_run()
     // BGRA pixel format
     MDFN_PixelFormat pix_fmt(MDFN_COLORSPACE_RGB, 16, 8, 0, 24);
 
-    int width  = game->fb_width;
-    int height = game->fb_height;
-    width  <<= psx_gpu_upscale_shift;
-    height <<= psx_gpu_upscale_shift;
+    game->fb_width <<= psx_gpu_upscale_shift;
+    game->fb_height <<= psx_gpu_upscale_shift;
 
-    surf = new MDFN_Surface(NULL, width, height, width, pix_fmt);
+    surf = new MDFN_Surface(NULL, game->fb_width, game->fb_height, game->fb_width, pix_fmt);
 
     masterClock = game->MasterClock >> 32;
 
@@ -1050,12 +1048,12 @@ static void emulation_run()
 
 - (OEIntRect)screenRect
 {
-    return OEIntRectMake(videoOffsetX, videoOffsetY, videoWidth << psx_gpu_upscale_shift, videoHeight << psx_gpu_upscale_shift);
+    return OEIntRectMake(videoOffsetX << psx_gpu_upscale_shift, videoOffsetY << psx_gpu_upscale_shift, videoWidth << psx_gpu_upscale_shift, videoHeight << psx_gpu_upscale_shift);
 }
 
 - (OEIntSize)bufferSize
 {
-    return OEIntSizeMake(game->fb_width << psx_gpu_upscale_shift, game->fb_height << psx_gpu_upscale_shift);
+    return OEIntSizeMake(game->fb_width, game->fb_height);
 }
 
 - (OEIntSize)aspectSize
