@@ -22,6 +22,7 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		20A48F4F1D567B04007545F2 /* OpenCL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 20A48F4E1D567B04007545F2 /* OpenCL.framework */; };
 		3DCDE7191BD2D8FD00392D0D /* libvorbis.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 9453E37C1AC5E1E9004F42AD /* libvorbis.a */; };
 		3DDC76191BD2D825002E7674 /* CDAFReader_SF.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 94B082471A8697EF00D3C0BC /* CDAFReader_SF.cpp */; };
 		3DDC761A1BD2D86B002E7674 /* libsndfile_FLAC.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 27FF3AC11B1CF78F002F941E /* libsndfile_FLAC.a */; };
@@ -228,6 +229,7 @@
 		089C167EFE841241C02AAC07 /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		089C167FFE841241C02AAC07 /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = /System/Library/Frameworks/AppKit.framework; sourceTree = "<absolute>"; };
 		1058C7ADFEA557BF11CA2CBB /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = /System/Library/Frameworks/Cocoa.framework; sourceTree = "<absolute>"; };
+		20A48F4E1D567B04007545F2 /* OpenCL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = OpenCL.framework; sourceTree = "<group>"; };
 		27FF3AC11B1CF78F002F941E /* libsndfile_FLAC.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libsndfile_FLAC.a; path = libsndfile/libsndfile_FLAC.a; sourceTree = "<group>"; };
 		8240861A0FFDD64600F0FE7D /* libz.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libz.dylib; path = usr/lib/libz.dylib; sourceTree = SDKROOT; };
 		824088340FFDDCF400F0FE7D /* MednafenGameCore.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = MednafenGameCore.h; sourceTree = "<group>"; };
@@ -1613,6 +1615,7 @@
 				8D5B49B4048680CD000E48DA /* Cocoa.framework in Frameworks */,
 				3DDC761A1BD2D86B002E7674 /* libsndfile_FLAC.a in Frameworks */,
 				3DCDE7191BD2D8FD00392D0D /* libvorbis.a in Frameworks */,
+				20A48F4F1D567B04007545F2 /* OpenCL.framework in Frameworks */,
 				8240861B0FFDD64600F0FE7D /* libz.dylib in Frameworks */,
 				94454E3E17852F23006C057B /* OpenEmuBase.framework in Frameworks */,
 			);
@@ -2917,6 +2920,7 @@
 				94CFB6421A75DB60001F174F /* gpu_polygon.cpp */,
 				94CFB6431A75DB60001F174F /* gpu_sprite.cpp */,
 				8CB3D87917F1DE5C0090372A /* gpu.cpp */,
+				20A48F4E1D567B04007545F2 /* OpenCL.framework */,
 				8CB3D87A17F1DE5C0090372A /* gpu.h */,
 				8CB3D87F17F1DE5C0090372A /* gte.cpp */,
 				8CB3D88017F1DE5C0090372A /* gte.h */,
@@ -4407,6 +4411,11 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				COMBINE_HIDPI_IMAGES = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)",
+					"$(PROJECT_DIR)/mednafen/psx",
+				);
 				HEADER_SEARCH_PATHS = (
 					"\"$(SRCROOT)\"",
 					"\"$(SRCROOT)/include\"",
@@ -4465,6 +4474,11 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				COMBINE_HIDPI_IMAGES = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)",
+					"$(PROJECT_DIR)/mednafen/psx",
+				);
 				HEADER_SEARCH_PATHS = (
 					"\"$(SRCROOT)\"",
 					"\"$(SRCROOT)/include\"",
@@ -4550,6 +4564,8 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				LLVM_LTO = NO;
 				MACOSX_DEPLOYMENT_TARGET = 10.11;
+				OPENCL_ARCHS = "i386 x86_64 gpu_32 gpu_64";
+				OPENCL_OTHER_BC_FLAGS = "";
 				SDKROOT = macosx;
 			};
 			name = Debug;
@@ -4586,6 +4602,8 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				LLVM_LTO = YES;
 				MACOSX_DEPLOYMENT_TARGET = 10.11;
+				OPENCL_ARCHS = "i386 x86_64 gpu_32 gpu_64";
+				OPENCL_OTHER_BC_FLAGS = "";
 				SDKROOT = macosx;
 			};
 			name = Release;

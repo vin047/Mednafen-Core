@@ -5,6 +5,7 @@
 #define __MDFN_PSX_GPU_H
 
 #include "FastFIFO.h"
+#include <OpenCL/opencl.h>
 
 namespace MDFN_IEN_PSX
 {
@@ -100,6 +101,38 @@ class PS_GPU
 
  private:
 
+ // OpenCL
+ cl_platform_id     opencl_platform;
+ //cl_uint cl_numberofplatforms;
+ //cl_platform_id *cl_platforms;
+ cl_device_id       opencl_gpuid;
+ cl_context         opencl_context;
+ cl_command_queue   opencl_commands;
+ cl_program         opencl_program;
+ cl_kernel          opencl_kl_upscale;
+ cl_mem             opencl_input;
+ cl_mem             opencl_output;
+ //uint32 buffer_in[736];
+ //uint32 buffer_out[736];
+ // cl_uint test_int;
+
+ const char *opencl_src = "\n" \
+"__kernel void upscale(                                                 \n" \
+"   __global uint4* input,                                                  \n" \
+"   __global uint4* output)                                                  \n" \
+"{                                                                      \n" \
+"   int i = get_global_id(0);                                           \n" \
+"   output[i] = input[i];                                             \n" \
+"}                                                                      \n" \
+"\n";
+
+/*
+"   int i = get_global_id(0);                                           \n" \
+"   output[i] = input[i];                                             \n" \
+"   output[i+1] = input[i];                                             \n" \
+"   output[i+width] = input[i];                                             \n" \
+"   output[i+width+1] = input[i];                                             \n" \
+*/
  uint16 CLUT_Cache[256];
  uint32 CLUT_Cache_VB;	// Don't try to be clever and reduce it to 16 bits... ~0U is value for invalidated state.
 

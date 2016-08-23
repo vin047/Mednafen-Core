@@ -966,6 +966,9 @@ static void emulation_run()
     if(!game)
         return NO;
 
+    game->fb_width <<= 1;
+    game->fb_height <<= 1;
+
     // BGRA pixel format
     MDFN_PixelFormat pix_fmt(MDFN_COLORSPACE_RGB, 16, 8, 0, 24);
     surf = new MDFN_Surface(NULL, game->fb_width, game->fb_height, game->fb_width, pix_fmt);
@@ -1042,7 +1045,7 @@ static void emulation_run()
 
 - (OEIntRect)screenRect
 {
-    return OEIntRectMake(videoOffsetX, videoOffsetY, videoWidth, videoHeight);
+    return OEIntRectMake(videoOffsetX, videoOffsetY, videoWidth << 1, videoHeight << 1);
 }
 
 - (OEIntSize)bufferSize

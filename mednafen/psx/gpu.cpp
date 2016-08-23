@@ -58,6 +58,23 @@
 namespace MDFN_IEN_PSX
 {
 
+// const char *KernelSource = "\n" \
+// "__kernel void vadd(                                                 \n" \
+// "   __global float* a,                                                  \n" \
+// "   __global float* b,                                                  \n" \
+// "   __global float* c,                                                  \n" \
+// "   const unsigned int count)                                           \n" \
+// "{                                                                      \n" \
+// "   int i = get_global_id(0);                                           \n" \
+// "   if(i < count)                                                       \n" \
+// "       c[i] = a[i] + b[i];                                             \n" \
+// "}                                                                      \n" \
+// "\n";
+
+// #define TOL    (0.001)   // tolerance used in floating point comparisons
+// #define LENGTH (1024)    // length of vectors a, b, and c
+// #define DEVICE CL_DEVICE_TYPE_DEFAULT
+
 static const int8 dither_table[4][4] =
 {
  { -4,  0, -3,  1 },
@@ -68,6 +85,224 @@ static const int8 dither_table[4][4] =
 
 PS_GPU::PS_GPU(bool pal_clock_and_tv, int sls, int sle, bool show_h_overscan)
 {
+// OpenCL
+    int err;
+err = clGetPlatformIDs(1, &opencl_platform, NULL);                                    // get opencl platform (assume 1)
+//clGetPlatformIDs(0, NULL, &cl_numberofplatforms);                       // get number of platforms
+//cl_platforms = malloc(sizeof(*cl_platform_id) * cl_numberofplatforms);  // allocate array for platforms
+//clGetPlatformIDs(cl_numberofplatforms, cl_platforms, NULL);             // get all platform ids
+
+// summarise results
+    FILE *f = fopen("/Users/vin/Workspace/log.txt", "w");
+    if (f == NULL)
+    {
+        printf("Error opening file!\n");
+        exit(1);
+    }
+
+    /* print some text */
+    fprintf(f, "OPENCLRESULTS --> 1:  %d\n", err);
+    //fclose(f);
+
+
+err = clGetDeviceIDs(opencl_platform, CL_DEVICE_TYPE_GPU, 1, &opencl_gpuid, NULL);    // get opencl gpu id (assume 1)
+fprintf(f, "OPENCLRESULTS --> 2:  %d\n", err);
+opencl_context  = clCreateContext(0, 1, &opencl_gpuid, NULL, NULL, &err);       // create opencl context
+fprintf(f, "OPENCLRESULTS --> 3:  %d\n", err);
+opencl_commands = clCreateCommandQueue(opencl_context, opencl_gpuid, 0, &err);  // create opencl command queue
+fprintf(f, "OPENCLRESULTS --> 4:  %d\n", err);
+opencl_program  = clCreateProgramWithSource(opencl_context, 1,                  // create opencl program
+    (const char **) &opencl_src, NULL, &err);
+fprintf(f, "OPENCLRESULTS --> 5:  %d\n", err);
+err = clBuildProgram(opencl_program, 0, NULL, NULL, NULL, NULL);                      // build opencl program
+fprintf(f, "OPENCLRESULTS --> 6:  %d\n", err);
+opencl_kl_upscale = clCreateKernel(opencl_program, "upscale", &err);            // create compute kernel from program
+fprintf(f, "OPENCLRESULTS --> 7:  %d\n", err);
+fclose(f);
+//     int          err;               // error code returned from OpenCL calls
+
+//     float*       h_a = (float*) calloc(LENGTH, sizeof(float));       // a vector
+//     float*       h_b = (float*) calloc(LENGTH, sizeof(float));       // b vector
+//     float*       h_c = (float*) calloc(LENGTH, sizeof(float));       // c vector (a+b) returned from the compute device
+
+//     unsigned int correct;           // number of correct results
+
+//     size_t global;                  // global domain size
+
+//     cl_device_id     device_id;     // compute device id
+//     cl_context       context;       // compute context
+//     cl_command_queue commands;      // compute command queue
+//     cl_program       program;       // compute program
+//     cl_kernel        ko_vadd;       // compute kernel
+
+//     cl_mem d_a;                     // device memory used for the input  a vector
+//     cl_mem d_b;                     // device memory used for the input  b vector
+//     cl_mem d_c;                     // device memory used for the output c vector
+
+//     // Fill vectors a and b with random float values
+//     int i = 0;
+//     int count = LENGTH;
+//     for(i = 0; i < count; i++){
+//         h_a[i] = rand() / (float)RAND_MAX;
+//         h_b[i] = rand() / (float)RAND_MAX;
+//     }
+
+//     // Set up platform and GPU device
+//     cl_uint numPlatforms;
+
+//     // Find number of platforms
+//     err = clGetPlatformIDs(0, NULL, &numPlatforms);
+//     //checkError(err, "Finding platforms");
+//     if (numPlatforms == 0)
+//     {
+//         printf("Found 0 platforms!\n");
+//     //    return EXIT_FAILURE;
+//     }
+
+//     // Get all platforms
+//     cl_platform_id Platform[numPlatforms];
+//     err = clGetPlatformIDs(numPlatforms, Platform, NULL);
+//     //checkError(err, "Getting platforms");
+
+//     // Secure a GPU
+//     for (i = 0; i < numPlatforms; i++)
+//     {
+//         err = clGetDeviceIDs(Platform[i], DEVICE, 1, &device_id, NULL);
+//         if (err == CL_SUCCESS)
+//         {
+//             break;
+//         }
+//     }
+
+//     //if (device_id == NULL)
+//     //    checkError(err, "Finding a device");
+
+//     //err = output_device_info(device_id);
+//     //checkError(err, "Printing device output");
+
+//     // Create a compute context
+//     context = clCreateContext(0, 1, &device_id, NULL, NULL, &err);
+//     //checkError(err, "Creating context");
+
+//     // Create a command queue
+//     commands = clCreateCommandQueue(context, device_id, 0, &err);
+//     //checkError(err, "Creating command queue");
+
+//     // Create the compute program from the source buffer
+//     program = clCreateProgramWithSource(context, 1, (const char **) & KernelSource, NULL, &err);
+//     //checkError(err, "Creating program");
+
+// // Build the program
+//     err = clBuildProgram(program, 0, NULL, NULL, NULL, NULL);
+//     if (err != CL_SUCCESS)
+//     {
+//         size_t len;
+//         char buffer[2048];
+
+//         printf("Error: Failed to build program executable!\n\n");
+//         clGetProgramBuildInfo(program, device_id, CL_PROGRAM_BUILD_LOG, sizeof(buffer), buffer, &len);
+//         printf("%s\n", buffer);
+//         //return EXIT_FAILURE;
+//     }
+
+//     // Create the compute kernel from the program
+//     ko_vadd = clCreateKernel(program, "vadd", &err);
+//     //checkError(err, "Creating kernel");
+
+//     // Create the input (a, b) and output (c) arrays in device memory
+//     d_a  = clCreateBuffer(context,  CL_MEM_READ_ONLY,  sizeof(float) * count, NULL, &err);
+//     //checkError(err, "Creating buffer d_a");
+
+//     d_b  = clCreateBuffer(context,  CL_MEM_READ_ONLY,  sizeof(float) * count, NULL, &err);
+//     //checkError(err, "Creating buffer d_b");
+
+//     d_c  = clCreateBuffer(context,  CL_MEM_WRITE_ONLY, sizeof(float) * count, NULL, &err);
+//     //checkError(err, "Creating buffer d_c");
+
+//     // Write a and b vectors into compute device memory
+//     err = clEnqueueWriteBuffer(commands, d_a, CL_TRUE, 0, sizeof(float) * count, h_a, 0, NULL, NULL);
+//     //checkError(err, "Copying h_a to device at d_a");
+
+//     err = clEnqueueWriteBuffer(commands, d_b, CL_TRUE, 0, sizeof(float) * count, h_b, 0, NULL, NULL);
+//     //checkError(err, "Copying h_b to device at d_b");
+
+//     // Set the arguments to our compute kernel
+//     err  = clSetKernelArg(ko_vadd, 0, sizeof(cl_mem), &d_a);
+//     err |= clSetKernelArg(ko_vadd, 1, sizeof(cl_mem), &d_b);
+//     err |= clSetKernelArg(ko_vadd, 2, sizeof(cl_mem), &d_c);
+//     err |= clSetKernelArg(ko_vadd, 3, sizeof(unsigned int), &count);
+//     //checkError(err, "Setting kernel arguments");
+
+//     //double rtime = wtime();
+
+//     // Execute the kernel over the entire range of our 1d input data set
+//     // letting the OpenCL runtime choose the work-group size
+//     global = count;
+//     err = clEnqueueNDRangeKernel(commands, ko_vadd, 1, NULL, &global, NULL, 0, NULL, NULL);
+//     //checkError(err, "Enqueueing kernel");
+
+//     // Wait for the commands to complete before stopping the timer
+//     err = clFinish(commands);
+//     //checkError(err, "Waiting for kernel to finish");
+
+//     //rtime = wtime() - rtime;
+//     //printf("\nThe kernel ran in %lf seconds\n",rtime);
+
+//     // Read back the results from the compute device
+//     err = clEnqueueReadBuffer( commands, d_c, CL_TRUE, 0, sizeof(float) * count, h_c, 0, NULL, NULL );  
+//     if (err != CL_SUCCESS)
+//     {
+//         printf("Error: Failed to read output array!\n\n");
+//         exit(1);
+//     }
+
+//     // Test the results
+//     correct = 0;
+//     float tmp;
+
+//     for(i = 0; i < count; i++)
+//     {
+//         tmp = h_a[i] + h_b[i];     // assign element i of a+b to tmp
+//         tmp -= h_c[i];             // compute deviation of expected and output result
+//         if(tmp*tmp < TOL*TOL)        // correct if square deviation is less than tolerance squared
+//             correct++;
+//         else {
+//             printf(" tmp %f h_a %f h_b %f h_c %f \n",tmp, h_a[i], h_b[i], h_c[i]);
+//         }
+//     }
+
+// // summarise results
+//     FILE *f = fopen("/Users/vin/Workspace/log.txt", "w");
+//     if (f == NULL)
+//     {
+//         printf("Error opening file!\n");
+//         exit(1);
+//     }
+
+//     /* print some text */
+//     fprintf(f, "OPENCLRESULTS --> C = A+B:  %d out of %d results were correct.\n", correct, count);
+//     fclose(f);
+
+//     //MDFN_printf(_("OPENCLRESULTS --> C = A+B:  %d out of %d results were correct.\n"), correct, count);
+//     //printf("OPENCLRESULTS --> C = A+B:  %d out of %d results were correct.\n", correct, count);
+
+//     // cleanup then shutdown
+//     clReleaseMemObject(d_a);
+//     clReleaseMemObject(d_b);
+//     clReleaseMemObject(d_c);
+//     clReleaseProgram(program);
+//     clReleaseKernel(ko_vadd);
+//     clReleaseCommandQueue(commands);
+//     clReleaseContext(context);
+
+//     free(h_a);
+//     free(h_b);
+//     free(h_c);
+
+
+
+
+
  HardwarePALType = pal_clock_and_tv;
 
  hide_hoverscan = !show_h_overscan;
@@ -113,7 +348,14 @@ PS_GPU::PS_GPU(bool pal_clock_and_tv, int sls, int sle, bool show_h_overscan)
 
 PS_GPU::~PS_GPU()
 {
-
+ clReleaseProgram(opencl_program);
+ clReleaseKernel(opencl_kl_upscale);
+ clReleaseCommandQueue(opencl_commands);
+ clReleaseContext(opencl_context);
+ if(opencl_input)
+  clReleaseMemObject(opencl_input);
+ if(opencl_output)
+  clReleaseMemObject(opencl_output);
 }
 
 void PS_GPU::FillVideoParams(MDFNGI* gi)
@@ -181,6 +423,12 @@ void PS_GPU::SoftReset(void) // Control command 0x00
  DisplayFB_YStart = 0;
 
  DisplayMode = 0;
+ // OpenCL - buffer size, based on DisplayMode value (see PS_GPU::Update function for more info)
+ //clReleaseMemObject(opencl_input);
+ //clReleaseMemObject(opencl_output);
+ // create the input and output arrays in device memory
+ //opencl_input  = clCreateBuffer(opencl_context, CL_MEM_READ_ONLY,  sizeof(uint32) * 280, NULL, NULL);
+ //opencl_output = clCreateBuffer(opencl_context, CL_MEM_WRITE_ONLY, sizeof(uint32) * 280, NULL, NULL);
 
  HorizStart = 0x200;
  HorizEnd = 0xC00;
@@ -282,6 +530,38 @@ void PS_GPU::Power(void)
  FBRW_CurX = 0;
 
  DisplayMode = 0;
+ // OpenCL - buffer size, based on DisplayMode value (see PS_GPU::Update function for more info)
+ // create the input and output arrays in device memory
+ static const uint32 DotClockRatios[5] = { 10, 8, 5, 4, 7 };
+ const uint32 dmc = (DisplayMode & 0x40) ? 4 : (DisplayMode & 0x3);
+ const uint32 dmw = 2800 / DotClockRatios[dmc]; // Must be <= (768 - 32)
+ int err;
+  FILE *f = fopen("/Users/vin/Workspace/log_create.txt", "w");
+ opencl_input  = clCreateBuffer(opencl_context, CL_MEM_READ_ONLY | CL_MEM_ALLOC_HOST_PTR,  sizeof(uint32) * 736, NULL, &err);
+  // FILE *f = fopen("/Users/vin/Workspace/log_data.txt", "w");
+ // uint32 test[2944] = {0};
+// uint32 *host_ptr = (uint32*) clEnqueueMapBuffer(opencl_commands, opencl_input, CL_TRUE, CL_MAP_WRITE, 0, sizeof(float)*dmw, 0, NULL, NULL, &err);
+      // OpenCL
+      // write the vector into compute device memory
+      //err = clEnqueueWriteBuffer(opencl_commands, opencl_input, CL_TRUE, 0, sizeof(uint32)*dmw, dest_tmp, 0, NULL, NULL);
+// fprintf(f, "OPENCLRESULTS --> 1:  %d\n", err);
+// std::copy(test, test+dmw, host_ptr);
+
+// err = clEnqueueUnmapMemObject(opencl_commands, opencl_input, host_ptr, 0, NULL, NULL);
+ fprintf(f, "OPENCLRESULTS --> 1:  %d\n", err);
+ opencl_output = clCreateBuffer(opencl_context, CL_MEM_WRITE_ONLY | CL_MEM_ALLOC_HOST_PTR, sizeof(uint32) * 736, NULL, &err);
+ fprintf(f, "OPENCLRESULTS --> 2:  %d\n", err);
+ fprintf(f, "OPENCLRESULTS --> dmw size is:  %d\n", sizeof(uint32) * 736);
+ fclose(f);
+ // set the arguments to the kernel
+      err = clSetKernelArg(opencl_kl_upscale, 0, sizeof(cl_mem), &opencl_input);
+      //fprintf(f, "OPENCLRESULTS --> 2:  %d\n", err);
+      err = clSetKernelArg(opencl_kl_upscale, 1, sizeof(cl_mem), &opencl_output);
+      //fprintf(f, "OPENCLRESULTS --> 3:  %d\n", err);
+      // test_int = sizeof(uint32) * 736;
+      // err = clSetKernelArg(opencl_kl_upscale, 2, sizeof(unsigned int), &test_int);
+      //fprintf(f, "OPENCLRESULTS --> 4:  %d\n", err);
+
  DisplayOff = 1;
  DisplayFB_XStart = 0;
  DisplayFB_YStart = 0;
@@ -923,6 +1203,12 @@ void PS_GPU::Write(const pscpu_timestamp_t timestamp, uint32 A, uint32 V)
    case 0x08:
 	//printf("\n\nDISPLAYMODE SET: 0x%02x, %u *************************\n\n\n", V & 0xFF, scanline);
 	DisplayMode = V & 0xFF;
+    // OpenCL - buffer size, based on DisplayMode value (see PS_GPU::Update function for more info)
+    //clReleaseMemObject(opencl_input);
+    //clReleaseMemObject(opencl_output);
+    // create the input and output arrays in device memory
+    //opencl_input  = clCreateBuffer(opencl_context, CL_MEM_READ_ONLY,  sizeof(uint32) * 400, NULL, NULL);
+    //opencl_output = clCreateBuffer(opencl_context, CL_MEM_WRITE_ONLY, sizeof(uint32) * 400, NULL, NULL);
 	break;
 
    case 0x09:
@@ -1415,27 +1701,95 @@ pscpu_timestamp_t PS_GPU::Update(const pscpu_timestamp_t sys_timestamp)
 
      LineWidths[dest_line] = dmw - dmpa * 2;
 
+     // {
+     //  const uint16 *src = GPURAM[DisplayFB_CurLineYReadout];
+     //  const uint32 black = surface->MakeColor(0, 0, 0);
+
+     //  for(int32 x = 0; x < dx_start; x++)
+     //   dest[x] = black;
+
+     //  //printf("%d %d %d - %d %d\n", scanline, dx_start, dx_end, HorizStart, HorizEnd);
+     //  if(surface->format.Rshift == 0 && surface->format.Gshift == 8 && surface->format.Bshift == 16)
+     //   ReorderRGB<0, 8, 16>(DisplayMode & 0x10, src, dest, dx_start, dx_end, fb_x);
+     //  else if(surface->format.Rshift == 8 && surface->format.Gshift == 16 && surface->format.Bshift == 24)
+     //   ReorderRGB<8, 16, 24>(DisplayMode & 0x10, src, dest, dx_start, dx_end, fb_x);
+     //  else if(surface->format.Rshift == 16 && surface->format.Gshift == 8 && surface->format.Bshift == 0)
+     //   ReorderRGB<16, 8, 0>(DisplayMode & 0x10, src, dest, dx_start, dx_end, fb_x);
+     //  else if(surface->format.Rshift == 24 && surface->format.Gshift == 16 && surface->format.Bshift == 8)
+     //   ReorderRGB<24, 16, 8>(DisplayMode & 0x10, src, dest, dx_start, dx_end, fb_x);
+     //  else
+     //   ReorderRGB_Var(surface->format.Rshift, surface->format.Gshift, surface->format.Bshift, DisplayMode & 0x10, src, dest, dx_start, dx_end, fb_x);
+
+     //  for(uint32 x = dx_end; x < dmw; x++)
+     //   dest[x] = black;
+     // }
+
      {
+      uint32 dest_tmp[dmw];
+      //uint32 dmw_new = dmw << 1;
+      size_t dmw_size = 2800/4; //2800:70   2808:72
+      size_t local_size = 72;
+      //uint32 dest_new[dmw];
       const uint16 *src = GPURAM[DisplayFB_CurLineYReadout];
       const uint32 black = surface->MakeColor(0, 0, 0);
 
       for(int32 x = 0; x < dx_start; x++)
-       dest[x] = black;
+       dest_tmp[x] = black;
 
       //printf("%d %d %d - %d %d\n", scanline, dx_start, dx_end, HorizStart, HorizEnd);
       if(surface->format.Rshift == 0 && surface->format.Gshift == 8 && surface->format.Bshift == 16)
-       ReorderRGB<0, 8, 16>(DisplayMode & 0x10, src, dest, dx_start, dx_end, fb_x);
+       ReorderRGB<0, 8, 16>(DisplayMode & 0x10, src, dest_tmp, dx_start, dx_end, fb_x);
       else if(surface->format.Rshift == 8 && surface->format.Gshift == 16 && surface->format.Bshift == 24)
-       ReorderRGB<8, 16, 24>(DisplayMode & 0x10, src, dest, dx_start, dx_end, fb_x);
+       ReorderRGB<8, 16, 24>(DisplayMode & 0x10, src, dest_tmp, dx_start, dx_end, fb_x);
       else if(surface->format.Rshift == 16 && surface->format.Gshift == 8 && surface->format.Bshift == 0)
-       ReorderRGB<16, 8, 0>(DisplayMode & 0x10, src, dest, dx_start, dx_end, fb_x);
+       ReorderRGB<16, 8, 0>(DisplayMode & 0x10, src, dest_tmp, dx_start, dx_end, fb_x);
       else if(surface->format.Rshift == 24 && surface->format.Gshift == 16 && surface->format.Bshift == 8)
-       ReorderRGB<24, 16, 8>(DisplayMode & 0x10, src, dest, dx_start, dx_end, fb_x);
+       ReorderRGB<24, 16, 8>(DisplayMode & 0x10, src, dest_tmp, dx_start, dx_end, fb_x);
       else
-       ReorderRGB_Var(surface->format.Rshift, surface->format.Gshift, surface->format.Bshift, DisplayMode & 0x10, src, dest, dx_start, dx_end, fb_x);
+       ReorderRGB_Var(surface->format.Rshift, surface->format.Gshift, surface->format.Bshift, DisplayMode & 0x10, src, dest_tmp, dx_start, dx_end, fb_x);
 
       for(uint32 x = dx_end; x < dmw; x++)
-       dest[x] = black;
+       dest_tmp[x] = black;
+
+      //memcpy(dest, &dest_tmp, sizeof(dest_tmp[0])*dmw);
+      // std::copy(dest_tmp, dest_tmp+dmw, dest);
+      // std::move(dest_tmp, dest_tmp+dmw, dest);
+
+ int err;
+  // FILE *f = fopen("/Users/vin/Workspace/log_data.txt", "w");
+ 
+uint32 *host_ptr = (uint32*) clEnqueueMapBuffer(opencl_commands, opencl_input, CL_FALSE, CL_MAP_WRITE, 0, sizeof(uint32)*dmw, 0, NULL, NULL, &err);
+      // OpenCL
+      // write the vector into compute device memory
+      //err = clEnqueueWriteBuffer(opencl_commands, opencl_input, CL_TRUE, 0, sizeof(uint32)*dmw, dest_tmp, 0, NULL, NULL);
+// fprintf(f, "OPENCLRESULTS --> 1:  %d\n", err);
+std::copy(dest_tmp, dest_tmp+dmw, host_ptr);
+
+err = clEnqueueUnmapMemObject(opencl_commands, opencl_input, host_ptr, 0, NULL, NULL);
+// fprintf(f, "OPENCLRESULTS --> 2:  %d\n", err);
+      // execute the kernel over the entire range of our 1d input data set
+      // letting the OpenCL runtime choose the work-group size
+      err = clEnqueueNDRangeKernel(opencl_commands, opencl_kl_upscale, 1, NULL, &dmw_size, NULL, 0, NULL, NULL);
+// err = clEnqueueTask(opencl_commands, opencl_kl_upscale, 0, NULL, NULL);
+      // fprintf(f, "OPENCLRESULTS --> 3:  %d\n", err);
+
+      // wait for the commands to complete
+      // err = clFinish(opencl_commands);
+        //fprintf(f, "OPENCLRESULTS --> 6:  %d\n", err);      
+
+      // read back the results from the compute device
+      //err = clEnqueueReadBuffer(opencl_commands, opencl_output, CL_TRUE, 0, sizeof(uint32)*dmw, dest, 0, NULL, NULL);
+      //fprintf(f, "OPENCLRESULTS --> 7:  %d\n", err);
+      //err = clFinish(opencl_commands);
+      //fprintf(f, "OPENCLRESULTS --> 8:  %d\n", err);
+      // fprintf(f, "OPENCLRESULTS --> dmw size is:  %d and other is %d\n", sizeof(uint32) * dmw, sizeof(cl_uint)*dmw);
+uint32 *host_ptr2 = (uint32*) clEnqueueMapBuffer(opencl_commands, opencl_output, CL_FALSE, CL_MAP_READ | CL_MAP_WRITE, 0, sizeof(uint32)*dmw, 0, NULL, NULL, &err);
+// fprintf(f, "OPENCLRESULTS --> 4:  %d\n", err);
+      // fclose(f);
+      std::copy(host_ptr2, host_ptr2+dmw, dest);
+      err = clEnqueueUnmapMemObject(opencl_commands, opencl_output, host_ptr2, 0, NULL, NULL);
+      // fprintf(f, "OPENCLRESULTS --> 5:  %d\n", err);
+      // fclose(f);
      }
 
      //if(scanline == 64)
